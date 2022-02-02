@@ -4,7 +4,7 @@
 
 
 #work directory 
-wd <- "D:/sites/"
+wd <- "D:/wd/sites/"
 setwd(wd)
 
 # site list 
