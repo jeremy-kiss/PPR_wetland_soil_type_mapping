@@ -1,0 +1,75 @@
+
+
+// Specify the Landsat 7 - Tier 1 collection as the ImageCollection want to work with
+var landsat7t1 = ee.ImageCollection('LANDSAT/LE07/C01/T1_RT');
+
+// Set filter parameters to apply to the ImageCollection, to specify what data we want
+// set boundary 
+var polygon = ee.Geometry.Polygon({
+  coords: [[[-106.15, 52.22], [-106.07, 52.22], [-106.07, 52.20], [-106.15, 52.20]
+  ]],
+  geodesic: false
+});
+
+// Set date range of interest
+// This will filter the ImageCollection to include only those that fall in the date range
+// see date_ranges_examples script for other options
+var daterange_start = ee.Date('2001-08-01');
+var daterange_end = ee.Date('2001-09-01');
+
+
+// Filter the landsat ImageCollection by the boundary and dates
+// The last line filters images that have more than 30% cloud cover
+var STDE_collection = landsat7t1.filterBounds(polygon)
+  .filterDate(daterange_start, daterange_end)
+  .filterMetadata('CLOUD_COVER', 'less_than', 30);
+
+
+  
+// Show the filtered collection. 
+// print command will show the collection in the Console section of the right-hand GEE panel  
+  print(STDE_collection);
+
+
+
+// MNDWI Calculation
+
+// This function calculates MNDWI 
+//This calculation is the same for Landsat 5 & 7. Landsat 8 would use B5 and B4
+var getMNDWI = function(image) {
+  return image.normalizedDifference(['B2', 'B5']);
+};
+
+// Use "map" to calculate MNDWI for each image in the collection
+// This will create a new ImageCollection, with MNDWI as the band
+var MNDWI = STDE_collection.map(getMNDWI);
+
+// Calculate the average MNDWI using all images in our collection 
+var median_MNDWI = MNDWI.reduce(ee.Reducer.median());
+
+// clip to the boundary specified earlier 
+var median_MNDWI_clip = median_MNDWI.clip(polygon);
+
+
+// Display in GEE map
+
+// set the visualization paramaters 
+var vizParams = {min: -0.5, max: 0.5, palette: ['6862ff', '#FEFFA3', '12d600']}
+
+// The second value is the zoom level, higher = more zoomed
+Map.centerObject(polygon,14);
+Map.addLayer( median_MNDWI_clip, vizParams)
+
+
+// Export the MNDWI image as a raster 
+// Export the image, specifying scale and region.
+Export.image.toDrive({
+image:  median_MNDWI_clip, //replace with your image name variable
+description: 'STDE_median_MNDWI',
+scale: 30, //meters per pixel. Landsat is 30m resolution 
+region: polygon, 
+crs: "EPSG:32613"
+});
+
+//After running the export, go to Tasks tab in the right panel of GEE. Click run to export the image 
+
