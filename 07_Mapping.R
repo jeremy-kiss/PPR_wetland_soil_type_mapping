@@ -10,9 +10,9 @@ wd <- "D:/wd/"
 setwd(wd)
 
 #### GENERATING MAPS 
-## NOT A LOOPED PROCESS, LOAD IN INDIVIDUAL MODELS 
+
 ## separeted based on model is generalized or site specific 
-beginCluster()
+beginCluster(n=12)
 site.list <- c("STDE" , "SWCU", "SMCR")
 
 ## list of models to use for mapping 
@@ -122,3 +122,6 @@ for(m in 1:length(model.name.list)){
   }
   
 }
+
+
+endCluster()
