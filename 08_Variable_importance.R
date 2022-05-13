@@ -15,7 +15,7 @@ cov.path <- "./sites/STDE/covar/2m/TIFFS"
 cov.list <- gsub("\\.tif$","", list.files(path = cov.path , pattern="\\.tif$"))
 
 # build empty df
-df <- data.frame(matrix(ncol = 32, nrow = 0) )
+df <- data.frame(matrix(ncol = 35, nrow = 0) )
 #add column for model name 
 colnames(df) <- cov.list
 
