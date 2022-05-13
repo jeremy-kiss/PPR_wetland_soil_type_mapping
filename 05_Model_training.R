@@ -9,11 +9,22 @@ library(ranger)
 library(sf)
 library(dplyr)
 
+
+# parallel processing
+library(parallel)
+no_cores <- detectCores() -1
+library(doParallel)
+cl <- makePSOCKcluster(no_cores)
+registerDoParallel(cl)
+
+
+
+
 wd <- "D:/wd/"
 setwd(wd)
 
 # set random seed 
-set.seed(88888)
+set.seed(8888)
 
 
 ## models to build 
@@ -49,55 +60,43 @@ for(i in 1:length(model.list)){
     #remove all non covar fields 
     pts.cov <- pts.cov %>% dplyr::select( -CoreCode, -set, -site, -geom, -RDU )
     
-    ## first perform forward feature selection (Sorenson et al., 2021)
-    # build ranger rf model 
-    # determine the importance of  each features
-    feat.order.model <- ranger(class3 ~ .,   data= pts.cov, num.trees = 1000, importance = 'impurity' )
-    feat.order.model 
-    
-    sort(importance(feat.order.model), decreasing = T)
-    
-    #forward feature selection
-    feature.order <- names(sort(importance(feat.order.model), decreasing = T) )
-    feature.order  <- c('class3', feature.order)
-    val <- vector('list')
     
     
-    # loop to create models using 1: all features, incoporating the most important first to determine how many variables to include 
-    for (f in 2:length(feature.order)){
-      
-      temp <- pts.cov[,feature.order[1:f]]
-      
-      model <- ranger(class3~., data=temp, importance='impurity', num.trees= 500)
-      
-      val <- c(val, model$prediction.error)
-      
-      rm(model)
-    }
+    ## Recursive feature selection using the caret package 
+    # following guidance provided here https://towardsdatascience.com/effective-feature-selection-recursive-feature-elimination-using-r-148ff998e4f7
     
+    ctrl <- rfeControl( functions = rfFuncs, method= "repeatedcv", number = 5, repeats = 5 )
     
-    predict_val <- unlist(val)
+    rfe <- rfe(x = pts.cov[, 2:ncol(pts.cov)],  y = pts.cov$class3, 
+               rfeControl = ctrl,
+               sizes = c(1:(ncol(pts.cov)-1)),
+               metric = "Kappa" )
+               
     
-    predict_val  <- data.frame(feature.order[-1], predict_val)
+    #print results
+    rfe
     
-    a <- 1:nrow(predict_val)
+    # Print the results visually
+    ggplot(data = rfe, metric = "Kappa") + theme_bw()
     
-    plot(predict_val$predict_val~a)
+    # save rfe results 
+    saveRDS(rfe, file=paste0("./",res,"m/rfe.rds" ) )
     
-    predict_val
+    # print selected features
+    predictors(rfe)
+    sel_pred <- predictors(rfe)
     
-    which.min(predict_val$predict_val)
+    #save number of selected features 
+    num_feats <- length(sel_pred)
     
-    # select number of features based on minimized error
-    # or manually select if minimized error is similar with far fewer features 
-    num.feats <- which.min(predict_val$predict_val)
     #save number of features
-    saveRDS(num.feats, file=paste0("./",res,"m/num_feats.rds" ) )
+    saveRDS(num_feats, file=paste0("./",res,"m/num_feats.rds" ) )
     
-    num.cols <- num.feats + 1
+    # keep only selected features 
+    pts.select_covar <- pts.cov %>% select(class3, all_of(sel_pred)  )
     
-    #select final covar
-    pts.select_covar <- pts.cov[,feature.order[1:num.cols]]
+    
+  
     
     
     #create final models 
@@ -105,17 +104,18 @@ for(i in 1:length(model.list)){
     
     ##
     ## Random Forest 
-    modelLookup(model="rf")
+    modelLookup(model="ranger")
     
     # ranger tuning grid 
       tgrid <- expand.grid(
-      .mtry = 2:num.feats,
+      .mtry = 2:num_feats,
       .splitrule = "gini",
       .min.node.size=1)
     
-    ranger <- caret::train(x = pts.select_covar[, 2:num.cols], y = pts.select_covar$class3, 
+    ranger <- caret::train(x = pts.select_covar[, 2:(num_feats+1)], y = pts.select_covar$class3, 
                           method = "ranger",  importance = 'impurity', num.trees = 1000,
                           tuneGrid = tgrid, 
+                          metric = "Kappa",
                           trControl = trainControl(method = "repeatedcv", number = 5, repeats = 20))
     
     ranger
@@ -127,14 +127,18 @@ for(i in 1:length(model.list)){
     saveRDS(ranger, file = paste0("./",res,"m/ranger.rds"))
     
     
+    # subset 
+    
+    
     
     ##
     ## CART 
     modelLookup(model="rpart")
     
-    rpart <- train(x = pts.select_covar[, 2:num.cols], y = pts.select_covar$class3, 
+    rpart <- train(x = pts.select_covar[, 2:(num_feats+1)], y = pts.select_covar$class3, 
                                   method = "rpart", 
                                   tuneLength = 50,
+                                  metric = "Kappa",
                                   trControl = trainControl(method = "repeatedcv", 
                                                            number = 5, repeats = 20))
     
@@ -148,8 +152,9 @@ for(i in 1:length(model.list)){
     ## multinomial regression model 
     modelLookup(model="multinom")
     
-    multinom <- train(x = pts.select_covar[, 2:num.cols], y = pts.select_covar$class3, 
+    multinom <- train(x = pts.select_covar[, 2:(num_feats+1)], y = pts.select_covar$class3, 
                                 method = "multinom", 
+                                metric = "Kappa",
                                 tuneLength = 20, trControl = trainControl(method = "repeatedcv", 
                                                                           number = 5, repeats = 20))
 
@@ -158,3 +163,7 @@ for(i in 1:length(model.list)){
     
     
   }}
+
+
+
+stopCluster(cl)
