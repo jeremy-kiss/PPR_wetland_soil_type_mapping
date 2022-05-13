@@ -858,7 +858,9 @@ EDF<- function(d){
 
   # now we need to generate vectors representing the 4 corners and the center of the raster
   nw  <- c(d@extent@xmin,d@extent@ymax)
+  sw  <- c(d@extent@xmin,d@extent@ymin)
   ne  <- c(d@extent@xmax,d@extent@ymax)
+  se  <- c(d@extent@xmax,d@extent@ymin)
 
   # generate distance to NW corner grid
   NW<- distanceFromPoints(d,nw)
@@ -868,6 +870,14 @@ EDF<- function(d){
   writeRaster(NW,"DIST_NW.tif",overwrite = TRUE)
   print('DISTANCE FROM NW GRID COMPLETE')
   
+  # generate distance to SW corner grid
+  SW<- distanceFromPoints(d,sw)
+  SW<- mask(x = SW, mask = d)
+  projection(SW)<-crs(d)
+  plot(SW, main='Dist SW',legend=FALSE,axes=FALSE)
+  writeRaster(SW,"DIST_SW.tif",overwrite = TRUE)
+  print('DISTANCE FROM SW GRID COMPLETE')
+  
   # generate distance to NE corner grid
   NE<- distanceFromPoints(d,ne)
   NE<- mask(x = NE, mask = d)
@@ -875,6 +885,14 @@ EDF<- function(d){
   plot(NE, main='Dist from NE',legend=FALSE,axes=FALSE)
   writeRaster(NE,"DIST_NE.tif",overwrite = TRUE)
   print('DISTANCE FROM NE GRID COMPLETE')
+  
+  # generate distance to SE corner grid
+  SE<- distanceFromPoints(d,se)
+  SE<- mask(x = SE, mask = d)
+  projection(SE)<-crs(d)
+  plot(SE, main='Dist SE',legend=FALSE,axes=FALSE)
+  writeRaster(SE,"DIST_SE.tif",overwrite = TRUE)
+  print('DISTANCE FROM SE GRID COMPLETE')
   
 }
 
@@ -1062,6 +1080,270 @@ for(i in 1:length(site.list)){
 
 
 
+
+# GRASS GIS DERIVATIVES ____________________________________________________________
+
+
+library(rgrass7)
+
+
+# Configuring GRASS ENVIRONMENTAL PATHS 
+# The code used for configuring GRASS PATHS code was written by Lauren Obrien (October 2021) and is available:
+# https://gist.github.com/obrl-soil/d74f58b137970364458ad41270a1c8f9
+
+# Source this file at the top of an R or Rmd file using rgrass7 together
+# with GRASS installed via OSGeo4W (https://trac.osgeo.org/osgeo4w/) on a
+# Windows machine.
+
+# e.g. source(file.path(getwd(), 'rgrass7-setup-win-osgeo4w.R'))
+
+# You can alternatively add the contents to a project-specific .Rprofile.
+
+# Its better to set these variables in an R session rather than in System,
+# especially if you have other GIS software like PostGIS installed, which has
+# its own GDAL_DATA path. This is also the only solution for Windows users on
+# accounts lacking admin rights.
+
+# Note that if you call `library(sf)` after setting these variables, GDAL_DATA
+# will be overwritten!
+
+# These paths are current to 2022-01-25 and may change in future. If you get
+# stuck, open a question on gis.stackexchange or r-sig-geo. I'm not resourced
+# to respond to one-on-one contacts on this topic.
+
+# from /bin/o4w_env.bat:
+Sys.setenv('OSGEO4W_ROOT' = file.path('C:', 'OSGeo4W'))
+# NB Change the above if you installed OSGeo4W in a non-standard location.
+
+# from %OSGEO4W_ROOT%/etc/ini/gdal.bat
+Sys.setenv('GDAL_DATA' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'share', 'gdal'))
+Sys.setenv('GDAL_DRIVER_PATH' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'bin', 'gdalplugins'))
+
+# from %OSGEO4W_ROOT%/etc/ini/libjpeg.bat (optional?)
+Sys.setenv('JPEGMEM' = 1000000)
+
+# from %OSGEO4W_ROOT%/etc/ini/openssl.bat (optional?)
+Sys.setenv('OPENSSL_ENGINES' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'lib', 'engines-1_1'))
+
+# from %OSGEO4W_ROOT%/etc/ini/proj.bat
+Sys.setenv('PROJ_LIB' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'share', 'proj'))
+
+# from %OSGEO4W_ROOT%/etc/ini/python3.bat
+Sys.setenv('PYTHONHOME' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Python39'))
+Sys.setenv('PYTHONUTF8' = 1)
+
+# from %OSGEO4W_ROOT%/etc/ini/qt5.bat (optional?)
+Sys.setenv('QT_PLUGIN_PATH' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5', 'plugins'))
+Sys.setenv('O4W_QT_PREFIX' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5'))
+Sys.setenv('O4W_QT_BINARIES' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5', 'bin'))
+Sys.setenv('O4W_QT_PLUGINS' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5', 'plugins'))
+Sys.setenv('O4W_QT_LIBRARIES' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5', 'lib'))
+Sys.setenv('O4W_QT_TRANSLATIONS' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5', 'translations'))
+Sys.setenv('O4W_QT_HEADERS' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5', 'include'))
+Sys.setenv('O4W_QT_DOC' = 
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'Qt5', 'doc'))
+
+# from%OSGEO4W_ROOT%/apps/grass/grass78/etc/env.bat
+Sys.setenv('GISBASE' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'apps', 'grass', 'grass78'))
+Sys.setenv('GRASS_PYTHON' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'bin', 'python3.exe'))
+Sys.setenv('PYTHONPATH' =
+             file.path(Sys.getenv('GISBASE'), 'etc', 'python'))
+Sys.setenv('GRASS_PROJSHARE' =
+             file.path(Sys.getenv('OSGEO4W_ROOT'), 'share', 'proj'))
+Sys.setenv('FONTCONFIG_FILE'=
+             file.path(Sys.getenv("GISBASE"), 'etc', 'fonts.conf'))
+
+# NB the appropriate path for the next two variables may vary depending on your
+# Windows version and your account permissions. If in doubt, open GRASS-GUI,
+# define a database, open a new location, exit, and then search your user
+# directory for a folder called 'GRASS7'. Edit the paths below to match. This
+# should only be necessary once after a clean installation of GRASS, or if you
+# refresh your user profile.
+
+# If GISRC is defined but no rc file exists at the specified location,
+# `library('rgrass7')` will fail with an error about XML. Either skip setting
+# this variable, or manually initialise GRASS as described above before
+# proceeding.
+
+if(!file.exists(file.path(Sys.getenv('USERPROFILE'), 'AppData', 'Roaming',
+                          'GRASS7', 'rc'))) {
+  message('Missing rc file in expected location.')
+} else {
+  Sys.setenv('GISRC' =
+               file.path(Sys.getenv('USERPROFILE'), 'AppData', 'Roaming',
+                         'GRASS7', 'rc'))
+}
+Sys.setenv('GRASS_ADDON_BASE' =
+             file.path(Sys.getenv('USERPROFILE'), 'AppData', 'Roaming',
+                       'GRASS7', 'addons'))
+# lastly,
+Sys.setenv('PATH' =
+             paste(file.path(Sys.getenv('GISBASE'), 'lib'),
+                   file.path(Sys.getenv('GISBASE'), 'bin'),
+                   Sys.getenv('GRASS_ADDON_BASE'),
+                   Sys.getenv('O4W_QT_BINARIES'),			 
+                   file.path(Sys.getenv('PYTHONHOME'), 'Scripts'), # python3.bat
+                   file.path(Sys.getenv('OSGEO4W_ROOT'), 'bin'),   #o4w_env.bat                   ,
+                   Sys.getenv("PATH"),
+                   sep = .Platform$path.sep))
+
+# Be aware that if you have other Python or GRASS installs on your PATH already,
+# you might need to alter the relative position of `Sys.getenv("PATH")` above.
+
+
+
+# Calculating Depth-to-Water using GRASS GIS 
+# The R code published by Schönauer & Maack was used for calculating depth-to-water (DTW), which is a calculation developed by Murphy et al. (2009). Small modifications were made to accommodate the study dataset. 
+
+# Schönauer, M., Maack, J., 2021. R-code for calculating depth-to-water (DTW) maps using GRASS GIS. Zenodo. doi: 10.5281/zenodo.5638517
+
+# Murphy, P.N.C, Ogilvie, J., & Arp, P. 2009. Topographic modelling of soil moisture conditions: a comparison and verification of two models.
+
+
+lapply(c("rgdal", "raster", "rgrass7", "sf", "sp"), require, character.only = TRUE)
+# (Pebesma and Bivand, 2005; Bivand et al., 2013; Pebesma, 2018; Hijmans, 2020; Bivand et al., 2021; Bivand, 2021)
+
+use_sp()
+
+# NEED TO OPEN OSGEO4W shell and change directory to GrassData folder
+# to cd, first enter d:, then cd to the file
+ 
+
+# run loop per site and resolution
+for(i in 1:length(site.list)){
+  
+  # get site name
+  site <- site.list[i]
+  
+  # specify site wd 
+  setwd(wd)
+  site.wd <- paste0("./", site )
+  setwd(site.wd)
+  
+  #loop to create SAGA covar for each resolution at each site 
+  for(x in 1:length(res.list)){
+    res <- res.list[x]
+    
+    setwd(wd)
+    setwd(site.wd)
+    
+    # get dem path 
+    dem.filepath <- normalizePath(paste0("./dem/processed_dem/", site, "_dem_",res,"m.tif"))
+    
+    # specify folder for each resolution 
+    res.wd <- paste0("./covar/",res,"m" )
+    
+    # set wd to target res folder
+    setwd(res.wd)
+  
+    # initialisation of GRASS  dataset
+    # Need to create this database and location in grass first 
+    initGRASS(gisBase = "C:/OSGeo4W/apps/grass/grass78",
+              gisDbase = "D:/GIS/GrassData",
+              location = paste0(site, "_2m"), 
+              mapset = "PERMANENT", 
+              override = T)
+
+    # actualize projection, the one from the file is used
+    # Often get ERROR MAPSET is not set warning - It is inconsistent. Re running fixed often
+    execGRASS("g.proj", 
+              georef = file.path(dem.filepath),
+              flags = c('t','c'))
+    
+
+    execGRASS('r.in.gdal', # insert the DEM to GDAL
+              input = file.path(dem.filepath),
+              output = 'DEM',
+              flags = c('overwrite','o', 'e'))
+    
+    execGRASS("g.region", # Align region to resolution (could be benefitial for calculating slopes) 
+              align = 'DEM')
+    
+    # The function 'r.hydrodem' removes all depressions (flags = 'a') from the DEM which is nesseray for calculating interruption-free flow channels which later represent the surface water. One could also set max size (e.g. size = 5000, but then flags 'a' has to be eliminated).
+    execGRASS('r.hydrodem',
+              input = 'DEM',
+              output = 'filledHydroDem',
+              flags = c('a','overwrite'))
+    
+    # D8 Flow Directions (flags = 's') are calculated, resulting in a flow-direction layer showing into which neighbouring cell the water will flow. Additionally, the flow accumulation (accumulation = <name>) using the created D8 flow directions is created.
+    execGRASS('r.watershed',
+              elevation = 'filledHydroDem',
+              accumulation = 'accum',
+              flags = c('s', 'a', 'overwrite'))
+    # A grid of terrain slope is calculated on the original (not-filled) DEM. Later, a cost-function will be applied to these values, why units are set to [percent].
+    execGRASS('r.slope.aspect',
+              elevation ='DEM',
+              slope = 'slope',
+              format = 'percent',
+              flags = c('a','overwrite'))
+    
+    # create directory for GRASS outputs 
+    dir.create("./GRASS" )
+    
+    
+    # A function is defined for efficient calculations:
+    calcDTW <- function(fia) {
+      # For calculating the flow paths, it is necessary to define a threshold (t) for the minimal flow initiation area (FIA), meaning how much area needs to accumulate downward the slope for resulting in a channel with simulated surface water. Commonly, t is set between 0.25 ha and 16 ha (32 ha).
+      t = fia * 10000/res(raster(dem.filepath))[1]^2 # flow accumulation is based on number of cells.  We need upstream contributing area [m^2], why the FIA is corrected by the spatial   resolution of the DEM.
+      # The layer of flow paths needs to be converted into a binary format (0 = no channel, 1 = channel), as start points for the cost function.
+      execGRASS('r.mapcalc', # select channels (above threshold) and transform them intobinary variables
+                expression = paste0('flowLines = if(accum >= ', t, ', 1, null())'),
+                flags = c('overwrite'))
+      # Finally, the DTW can be calculated as the minimum height difference (slope in percent scaled by the spatial resolution of the layer) between each cell and the flow path (surface water) layer using a cost function. The cost function (Awaida and Westervelt, 2020) starts at each point of the plot paths and sums up the height difference to each raster cell.
+      execGRASS('r.cost', # calculate the least-cost of slope [%], starting from the channels
+                input = 'slope',
+                start_raster = 'flowLines',
+                output = 'cost',
+                null_cost = 0,
+                flags = c('overwrite','k')) #'k' for with Knight's move for more accurate results - but longer computations
+      DTWxha<-raster(readRAST('cost')) # read raster from gdal and save it as object
+      DTWxha1<- DTWxha*res(raster(dem.filepath))[1]/100 # since GRASS r.slope.aspect gives a measure in percent, the cost-grid needs to be corrected by resolution and divided by 100 toachieve [m]
+      writeRaster(DTWxha1, filename = './GRASS/DTW.tif',
+                  overwrite = T)} # write and save the raster, an exemplatory file path is given
+    
+    calcDTW(4)
+    #lapply(c(0.25,1,2,4,10,16), calcDTW) # and finally run the function for the the desired FIAs.
+    
+    
+    # load in DTW raster 
+    DTW <- raster( './GRASS/DTW.tif' )
+    
+    # load in dem raster 
+    dem_mask <- raster(dem.filepath)
+    
+    # crop to match extent
+    DTW_mask <- crop(x= DTW, y=dem_mask)
+    
+    # mask
+    DTW_mask <- mask(x=DTW_mask, mask = dem_mask )
+    
+    # export into final TIFFS folder 
+    writeRaster(DTW_mask, filename = './TIFFS/DTW.tif',
+                overwrite = T)
+    
+
+  }
+}
+
+
+
+
+
+
 ## check that each site and resolution has all covariates calculated 
 
 # run loop per site and resolution
@@ -1087,7 +1369,7 @@ for(i in 1:length(site.list)){
                full.names = TRUE)
     
     # check if each folder has 32 covar
-    print(32 == length(files))
+    print(33 == length(files))
     
     # should print all TRUE 
     
