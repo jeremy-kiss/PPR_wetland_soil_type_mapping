@@ -1368,8 +1368,8 @@ for(i in 1:length(site.list)){
     files <- list.files(path = cov.path, pattern = "\\.tif$",
                full.names = TRUE)
     
-    # check if each folder has 32 covar
-    print(33 == length(files))
+    # check if each folder has 35 covar
+    print(35 == length(files))
     
     # should print all TRUE 
     
