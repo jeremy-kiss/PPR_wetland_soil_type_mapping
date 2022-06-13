@@ -836,7 +836,8 @@ for(i in 1:length(site.list)){
 
 
 
-### Euclidean distance - Script written by Daniel Saurette based on Behrens et al. 2018 ____________________________________________
+### Euclidean distance - Script written based on Behrens et al. 2018 by Daniel Saurette: 
+# https://github.com/newdale/onsoilsurvey/blob/master/R/oss.edf.R
 library(raster)
 library(rgdal)
 
@@ -1207,9 +1208,9 @@ Sys.setenv('PATH' =
 
 
 # Calculating Depth-to-Water using GRASS GIS 
-# The R code published by Schönauer & Maack was used for calculating depth-to-water (DTW), which is a calculation developed by Murphy et al. (2009). Small modifications were made to accommodate the study dataset. 
+# The R code published by Sch?nauer & Maack was used for calculating depth-to-water (DTW), which is a calculation developed by Murphy et al. (2009). Small modifications were made to accommodate the study dataset. 
 
-# Schönauer, M., Maack, J., 2021. R-code for calculating depth-to-water (DTW) maps using GRASS GIS. Zenodo. doi: 10.5281/zenodo.5638517
+# Sch?nauer, M., Maack, J., 2021. R-code for calculating depth-to-water (DTW) maps using GRASS GIS. Zenodo. doi: 10.5281/zenodo.5638517
 
 # Murphy, P.N.C, Ogilvie, J., & Arp, P. 2009. Topographic modelling of soil moisture conditions: a comparison and verification of two models.
 
@@ -1368,8 +1369,8 @@ for(i in 1:length(site.list)){
     files <- list.files(path = cov.path, pattern = "\\.tif$",
                full.names = TRUE)
     
-    # check if each folder has 32 covar
-    print(33 == length(files))
+    # check if each folder has 35 covar
+    print(35 == length(files))
     
     # should print all TRUE 
     
